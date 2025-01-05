@@ -10,7 +10,7 @@
  *   This project is licensed under the MIT License - see the LICENSE file for details.
  *
  * @details
- * The web server listens for incoming HTTP requests on port 80
+ * The web server listens for incoming socket requests on port 6438
  * and responds accordingly.
  *
  */
@@ -19,7 +19,9 @@
 
 const unsigned long WiFiCheckInterval = 10000; // 10 seconds
 
-#define PULSES_PER_KWH 1000
+//The port to listen for incoming requests
+const int WiFiPort = 6438;
+
 
 WebServer::WebServer(SerialPrinter& serialPrinter,
                      GarageDoorController& garageDoorController,
@@ -27,7 +29,7 @@ WebServer::WebServer(SerialPrinter& serialPrinter,
     : m_serialPrinter(serialPrinter)
     , m_garageDoorController(garageDoorController)
     , m_powerMeter(powerMeter)
-    , m_wifiServer(80)
+    , m_wifiServer(WiFiPort)
 {
     // Nothing to do
 }
@@ -99,67 +101,73 @@ void WebServer::tick()
 }
 
 
+/**
+ * @brief Reads a line (until '\n') from the client with a simple timeout.
+ */
+String WebServer::readLine(WiFiClient &client)
+{
+  String line;
+  unsigned long start = millis();
+  while (millis() - start < 10) {  // 10 ms second timeout
+    if (client.available()) {
+      char c = client.read();
+      if (c == '\n') break;
+      line += c;
+    }
+  }
+  return line;
+}
+
 void WebServer::handleRequestsNonBlocking()
 {
-  // 2) Handle any incoming HTTP requests
+  unsigned long currentMillis = millis();
+  bool bHandledRequest = false;
+  // Handle any incoming HTTP requests
   WiFiClient client = m_wifiServer.available();  // Wait for a client (non-blocking)
   if (client) {
     // Wait until the client sends some data
     while(!client.available()) {
-      delay(1);
+      //delay(1);
+      client.stop();
+      return;
     }
 
     // Read the incoming HTTP request
-    String req = client.readStringUntil('\r');
-    m_serialPrinter.println(req);
-    client.flush();
+    String req = readLine(client);
+    req.trim(); // Remove leading/trailing spaces
 
-    // Simple request parsing
-    // For example: GET /consumption or GET /door
-
-    // A) /consumption
-    if (req.indexOf("GET /consumption") >= 0) {
-      // Current pulses, or pulses since last read, or total usage
-      // Let's say we read the current count (without resetting)
-      noInterrupts();
-      unsigned long pulsesNow = 12;
-      interrupts();
-
-      float kwhNow = (float)pulsesNow / PULSES_PER_KWH;
+    // P - get Pulses
+    if (req == "P") {
+      unsigned long pulsesNow = m_powerMeter.readPulseCount();
 
       // Send response
-      client.println("HTTP/1.1 200 OK");
-      client.println("Content-Type: text/plain");
-      client.println("Connection: close");
-      client.println();
-      client.print("Pulses so far: ");
       client.print(pulsesNow);
-      client.print("\nEquivalent kWh: ");
-      client.println(kwhNow), 5;
+      client.print(12345);
+      client.print("\n");
+      bHandledRequest = true;
     }
-    // B) /door -> toggle or press the door button
-    else if (req.indexOf("GET /door") >= 0) {
+    //D -> toggle or press the garage Door button
+    else if (req.indexOf("D") >= 0) {
       m_garageDoorController.pressButton();
 
       // Send response
-      client.println("HTTP/1.1 200 OK");
-      client.println("Content-Type: text/plain");
-      client.println("Connection: close");
-      client.println();
-      client.println("Door toggled via relay!");
+      client.println("OK");
+      bHandledRequest = true;
     }
-    // C) Everything else
     else {
-      // Simple 404
-      client.println("HTTP/1.1 404 Not Found");
-      client.println("Content-Type: text/plain");
-      client.println("Connection: close");
-      client.println();
-      client.println("Not Found");
+      // Uknown command, send -1
+      client.println(-1);
+      bHandledRequest = true;
     }
 
     // Close connection
-    delay(1);
     client.stop();
   }
+  if (bHandledRequest)
+  {
+    unsigned long endTime = millis();
+    m_serialPrinter.print("Request handled in ");
+    m_serialPrinter.print(endTime - currentMillis);
+    m_serialPrinter.println(" ms");
+ }
 }

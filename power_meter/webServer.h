@@ -65,6 +65,11 @@ private:
     void handleRequestsNonBlocking();
 
     /**
+     * @brief       Reads a line (until '\n') from the client with a simple timeout.
+     */
+    String readLine(WiFiClient &client);
+
+    /**
      * @brief       The serial printer used for debugging.
      */
     SerialPrinter& m_serialPrinter;

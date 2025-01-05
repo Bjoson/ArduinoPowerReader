@@ -114,6 +114,13 @@ private:
      */
     unsigned long m_lastDebounceTimeUs = 0;
 
+    /**
+     * @brief       The current pulse count.
+     */
+    unsigned long m_pulseCount = 0;
+
+
+
 
 
 

@@ -91,3 +91,8 @@ void PowerMeter::tick()
         m_lastDebounceTimeUs = currentTimeUs;
     }
 }
+
+unsigned long PowerMeter::readPulseCount()
+{
+    return m_pulseCount;
+}
