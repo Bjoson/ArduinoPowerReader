@@ -136,13 +136,11 @@ void WebServer::handleRequestsNonBlocking()
     String req = readLine(client);
     req.trim(); // Remove leading/trailing spaces
 
-    // P - get Pulses
+    // P - get and reset the current pulse count
     if (req == "P") {
-      unsigned long pulsesNow = m_powerMeter.readPulseCount();
-
+      unsigned long pulsesNow = m_powerMeter.readAndResetPulseCount();
       // Send response
       client.print(pulsesNow);
-      client.print(12345);
       client.print("\n");
       bHandledRequest = true;
     }

@@ -21,8 +21,9 @@ static const int RISING_THRESHOLD = 600;
 // The threshold value for the analog sensor it needs to fall below to indicate led off state
 static const int FALLING_THRESHOLD = 400;
 
-// The debounce delay in microseconds
-const unsigned long DEBOUNCE_DELAY_US = 20*1000;
+// The debounce delay in microseconds, could be increased to 5-10 ms if unstable readings,
+// however the webserver requires up to 12 ms to send the values.
+const unsigned long DEBOUNCE_DELAY_US = 2*1000;
 
 PowerMeter::PowerMeter(SerialPrinter& serialPrinter)
     : m_serialPrinter(serialPrinter)
@@ -30,10 +31,12 @@ PowerMeter::PowerMeter(SerialPrinter& serialPrinter)
 
 }
 
+
 PowerMeter::~PowerMeter()
 {
     // Nothing to do
 }
+
 
 void PowerMeter::begin(int analogPin, int pulsesPerKwh)
 {
@@ -41,6 +44,7 @@ void PowerMeter::begin(int analogPin, int pulsesPerKwh)
     m_pulsesPerKwh = pulsesPerKwh;
     pinMode(m_analogPin, INPUT);
 }
+
 
 AnalogState PowerMeter::calculateNextState(int sensorValue)
 {
@@ -72,17 +76,22 @@ AnalogState PowerMeter::calculateNextState(int sensorValue)
     return nextLedState;
 }
 
+
 void PowerMeter::tick()
 {
     int sensorValue = analogRead(m_analogPin);
-    AnalogState candidateLedState = calculateNextState(sensorValue);
+    AnalogState possibleLedState = calculateNextState(sensorValue);
     unsigned long currentTimeUs = micros();
 
-    if (candidateLedState != m_lastStableLedState)
+    if (possibleLedState != m_lastStableLedState)
     {
         if ((currentTimeUs - m_lastDebounceTimeUs) > DEBOUNCE_DELAY_US)
         {
-            m_lastStableLedState = candidateLedState;
+            m_lastStableLedState = possibleLedState;
+            if (m_lastStableLedState == LED_STATE_HIGH)
+            {
+                m_currentPulseCount++;
+            }
         }
     }
     else
@@ -92,7 +101,21 @@ void PowerMeter::tick()
     }
 }
 
+
 unsigned long PowerMeter::readPulseCount()
 {
-    return m_pulseCount;
+    return m_currentPulseCount;
+}
+
+
+void PowerMeter::resetPulseCount()
+{
+    m_currentPulseCount = 0;
+}
+
+unsigned long PowerMeter::readAndResetPulseCount()
+{
+    unsigned long pulseCount = m_currentPulseCount;
+    m_currentPulseCount = 0;
+    return pulseCount;
 }

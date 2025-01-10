@@ -48,32 +48,23 @@ public:
     void tick();
 
     /**
-     * @brief       Read the current consumption in kilowatt-hours.
-     *
-     * @return      The current consumption in kilowatt-hours.
-     */
-    float readConsumption();
-
-    /**
-     * @brief       Read the current analog value.
-     *
-     * @return      The current analog value.
-     */
-    int readAnalogValue();
-
-    /**
      * @brief       Read the current pulse count.
-     *
      * @return      The current pulse count.
      */
     unsigned long readPulseCount();
 
     /**
+     * @brief       Read and reset the pulse count.
+     * @return      The pulse count.
+     */
+    unsigned long readAndResetPulseCount();
+
+private:
+
+    /**
      * @brief       Reset the pulse count.
      */
     void resetPulseCount();
-
-private:
 
     /**
      * @brief       Calculate the next state based on the sensor value.
@@ -117,7 +108,7 @@ private:
     /**
      * @brief       The current pulse count.
      */
-    unsigned long m_pulseCount = 0;
+    unsigned long m_currentPulseCount = 0;
 
 
 
